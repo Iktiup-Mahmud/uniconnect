@@ -6,14 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Users, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,81 +34,190 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store token in localStorage
         localStorage.setItem("token", data.data.token);
-        // Redirect to dashboard
+        localStorage.setItem("user", JSON.stringify(data.data.user));
         router.push("/dashboard");
       } else {
-        setError(data.message || "Login failed");
+        setError(data.message || "Login failed. Please check your credentials.");
       }
-    } catch {
-      setError("An error occurred. Please try again.");
+    } catch (err) {
+      setError("Unable to connect to server. Please try again later.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome back
-          </CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your account
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {error}
+    <div className="flex min-h-screen">
+      {/* Left Side - Login Form */}
+      <div className="flex w-full flex-col justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 px-6 py-12 lg:w-1/2 lg:px-20">
+        <div className="mx-auto w-full max-w-md">
+          {/* Logo */}
+          <Link href="/" className="mb-8 flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-gray-900">UniConnect</span>
+          </Link>
+
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome back</h1>
+            <p className="text-gray-600">
+              Enter your credentials to access your account
+            </p>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Email address
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@university.edu"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="h-12 rounded-xl border-gray-300 pl-11 focus:border-cyan-500 focus:ring-cyan-500"
+                  required
+                />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                required
-              />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-cyan-600 hover:text-cyan-500"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="h-12 rounded-xl border-gray-300 pl-11 focus:border-cyan-500 focus:ring-cyan-500"
+                  required
+                />
+              </div>
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="h-12 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-base font-semibold text-white shadow-lg shadow-cyan-500/30 transition-all hover:shadow-xl hover:shadow-cyan-500/40 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  Signing in...
+                </span>
+              ) : (
+                "Sign in"
+              )}
             </Button>
-            <div className="text-sm text-center text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/register"
-                className="text-primary hover:underline font-medium"
-              >
-                Sign up
-              </Link>
+          </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1 bg-gray-300"></div>
+            <span className="text-sm text-gray-500">or</span>
+            <div className="h-px flex-1 bg-gray-300"></div>
+          </div>
+
+          {/* Sign Up Link */}
+          <p className="text-center text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="font-semibold text-cyan-600 hover:text-cyan-500"
+            >
+              Sign up for free
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Right Side - Hero Image */}
+      <div className="hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:bg-gradient-to-br lg:from-cyan-500 lg:via-blue-500 lg:to-purple-500 lg:p-20">
+        <div className="text-white">
+          <h2 className="mb-6 text-4xl font-bold leading-tight">
+            Connect with students
+            <br />
+            from around the world
+          </h2>
+          <p className="mb-8 text-lg text-cyan-100">
+            Join thousands of students already networking, sharing experiences, and
+            building meaningful connections on UniConnect.
+          </p>
+          
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-8">
+            <div>
+              <div className="mb-1 text-3xl font-bold">10K+</div>
+              <div className="text-sm text-cyan-100">Active Students</div>
             </div>
-          </CardFooter>
-        </form>
-      </Card>
+            <div>
+              <div className="mb-1 text-3xl font-bold">50+</div>
+              <div className="text-sm text-cyan-100">Universities</div>
+            </div>
+            <div>
+              <div className="mb-1 text-3xl font-bold">100K+</div>
+              <div className="text-sm text-cyan-100">Connections</div>
+            </div>
+          </div>
+
+          {/* Decorative Elements */}
+          <div className="mt-12 grid grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-white/20"></div>
+                <div>
+                  <div className="mb-1 h-2 w-20 rounded bg-white/30"></div>
+                  <div className="h-1.5 w-16 rounded bg-white/20"></div>
+                </div>
+              </div>
+              <div className="h-2 w-full rounded bg-white/20"></div>
+              <div className="mt-1 h-2 w-4/5 rounded bg-white/20"></div>
+            </div>
+            <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-white/20"></div>
+                <div>
+                  <div className="mb-1 h-2 w-20 rounded bg-white/30"></div>
+                  <div className="h-1.5 w-16 rounded bg-white/20"></div>
+                </div>
+              </div>
+              <div className="h-2 w-full rounded bg-white/20"></div>
+              <div className="mt-1 h-2 w-3/5 rounded bg-white/20"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
