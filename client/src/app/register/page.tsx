@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Users,
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,6 +24,7 @@ export default function RegisterPage() {
     username: "",
     password: "",
     confirmPassword: "",
+    role: "student" as "student" | "faculty" | "club_organizer",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,41 +54,40 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/v1/auth/register",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            username: formData.username,
-            password: formData.password,
-          }),
-        }
-      );
+      const response = await api.register({
+        name: formData.name,
+        email: formData.email,
+        username: formData.username,
+        password: formData.password,
+        role: formData.role,
+      });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("token", data.data.token);
-        localStorage.setItem("user", JSON.stringify(data.data.user));
+      if (response.success && response.data) {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
         router.push("/dashboard");
       } else {
-        setError(data.message || "Registration failed. Please try again.");
+        setError(response.message || "Registration failed. Please try again.");
       }
-    } catch {
-      setError("Unable to connect to server. Please try again later.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to server. Please try again later.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const passwordStrength = formData.password.length >= 8 ? "strong" : 
-                          formData.password.length >= 6 ? "medium" : 
-                          formData.password.length > 0 ? "weak" : "none";
+  const passwordStrength =
+    formData.password.length >= 8
+      ? "strong"
+      : formData.password.length >= 6
+      ? "medium"
+      : formData.password.length > 0
+      ? "weak"
+      : "none";
 
   return (
     <div className="flex min-h-screen">
@@ -95,7 +103,7 @@ export default function RegisterPage() {
             Join a vibrant community of students sharing experiences, building
             connections, and growing together.
           </p>
-          
+
           {/* Features */}
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -163,7 +171,9 @@ export default function RegisterPage() {
 
           {/* Header */}
           <div className="mb-8">
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Create your account</h1>
+            <h1 className="mb-2 text-3xl font-bold text-gray-900">
+              Create your account
+            </h1>
             <p className="text-gray-600">
               Join thousands of students already on UniConnect
             </p>
@@ -180,7 +190,10 @@ export default function RegisterPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="name"
+                className="text-sm font-medium text-gray-700"
+              >
                 Full name
               </Label>
               <div className="relative">
@@ -200,7 +213,10 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="email"
+                className="text-sm font-medium text-gray-700"
+              >
                 Email address
               </Label>
               <div className="relative">
@@ -220,7 +236,10 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="username"
+                className="text-sm font-medium text-gray-700"
+              >
                 Username
               </Label>
               <div className="relative">
@@ -231,7 +250,10 @@ export default function RegisterPage() {
                   placeholder="johndoe"
                   value={formData.username}
                   onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value.toLowerCase() })
+                    setFormData({
+                      ...formData,
+                      username: e.target.value.toLowerCase(),
+                    })
                   }
                   className="h-12 rounded-xl border-gray-300 pl-11 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
                   required
@@ -241,7 +263,41 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="role"
+                className="text-sm font-medium text-gray-700"
+              >
+                I am a
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <select
+                  id="role"
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      role: e.target.value as
+                        | "student"
+                        | "faculty"
+                        | "club_organizer",
+                    })
+                  }
+                  className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-11 pr-4 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
+                  required
+                >
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="club_organizer">Club Organizer</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="password"
+                className="text-sm font-medium text-gray-700"
+              >
                 Password
               </Label>
               <div className="relative">
@@ -280,7 +336,10 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="confirmPassword"
+                className="text-sm font-medium text-gray-700"
+              >
                 Confirm password
               </Label>
               <div className="relative">
@@ -291,7 +350,10 @@ export default function RegisterPage() {
                   placeholder="Confirm your password"
                   value={formData.confirmPassword}
                   onChange={(e) =>
-                    setFormData({ ...formData, confirmPassword: e.target.value })
+                    setFormData({
+                      ...formData,
+                      confirmPassword: e.target.value,
+                    })
                   }
                   className="h-12 rounded-xl border-gray-300 pl-11 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
                   required
@@ -316,11 +378,17 @@ export default function RegisterPage() {
 
             <p className="text-center text-xs text-gray-600">
               By signing up, you agree to our{" "}
-              <Link href="/terms" className="font-medium text-cyan-600 hover:text-cyan-500">
+              <Link
+                href="/terms"
+                className="font-medium text-cyan-600 hover:text-cyan-500"
+              >
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="font-medium text-cyan-600 hover:text-cyan-500">
+              <Link
+                href="/privacy"
+                className="font-medium text-cyan-600 hover:text-cyan-500"
+              >
                 Privacy Policy
               </Link>
             </p>

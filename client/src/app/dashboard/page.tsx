@@ -29,7 +29,7 @@ import {
   Calendar,
   Settings
 } from "lucide-react";
-import { Post, User } from "@/types";
+import { Post, User, Comment } from "@/types";
 import { api } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -39,15 +39,20 @@ export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [commentTexts, setCommentTexts] = useState<Record<string, string>>({});
 
   const fetchPosts = async () => {
     try {
       const response = await api.getPosts();
-      if (response.success) {
+      if (response.success && response.data) {
         setPosts(response.data.posts || []);
       }
     } catch (error) {
       console.error("Error fetching posts:", error);
+      // Optionally show error to user
     }
   };
 
@@ -66,28 +71,81 @@ export default function DashboardPage() {
     }
   }, [router]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...files].slice(0, 10)); // Max 10 files
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreatePost = async () => {
-    if (!postContent.trim() || isLoading) return;
+    if ((!postContent.trim() && selectedFiles.length === 0) || isLoading) return;
 
     setIsLoading(true);
+    setUploadingMedia(true);
+
     try {
-      const response = await api.createPost(postContent);
+      let imageUrls: string[] = [];
+      let videoUrls: string[] = [];
+
+      // Upload files if any
+      if (selectedFiles.length > 0) {
+        try {
+          const uploadResponse = await api.uploadMultipleMedia(selectedFiles);
+          if (uploadResponse.success && uploadResponse.data) {
+            // Separate images and videos based on file type
+            selectedFiles.forEach((file, index) => {
+              if (file.type.startsWith("video/")) {
+                videoUrls.push(uploadResponse.data.urls[index]);
+              } else {
+                imageUrls.push(uploadResponse.data.urls[index]);
+              }
+            });
+          }
+        } catch (uploadError) {
+          console.error("Error uploading media:", uploadError);
+          alert("Failed to upload media files");
+          setIsLoading(false);
+          setUploadingMedia(false);
+          return;
+        }
+      }
+
+      // Create post with content and media
+      const response = await api.createPost({
+        content: postContent.trim() || undefined,
+        images: imageUrls.length > 0 ? imageUrls : undefined,
+        videos: videoUrls.length > 0 ? videoUrls : undefined,
+      });
+
       if (response.success) {
         setPostContent("");
-        fetchPosts();
+        setSelectedFiles([]);
+        await fetchPosts();
+      } else {
+        console.error("Failed to create post:", response.message);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error creating post:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create post";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
+      setUploadingMedia(false);
     }
   };
 
   const handleLikePost = async (postId: string) => {
     try {
-      await api.likePost(postId);
-      fetchPosts();
-    } catch (error) {
+      const response = await api.likePost(postId);
+      if (response.success) {
+        await fetchPosts();
+      }
+    } catch (error: unknown) {
       console.error("Error liking post:", error);
     }
   };
@@ -96,10 +154,16 @@ export default function DashboardPage() {
     if (!confirm("Are you sure you want to delete this post?")) return;
     
     try {
-      await api.deletePost(postId);
-      fetchPosts();
-    } catch (error) {
+      const response = await api.deletePost(postId);
+      if (response.success) {
+        await fetchPosts();
+      } else {
+        alert(response.message || "Failed to delete post");
+      }
+    } catch (error: unknown) {
       console.error("Error deleting post:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete post";
+      alert(errorMessage);
     }
   };
 
@@ -118,6 +182,131 @@ export default function DashboardPage() {
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  // Comment Section Component
+  const CommentSection = ({ postId }: { postId: string }) => {
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [commentText, setCommentText] = useState("");
+    const [loadingComments, setLoadingComments] = useState(false);
+    const [submittingComment, setSubmittingComment] = useState(false);
+
+    useEffect(() => {
+      fetchComments();
+    }, [postId]);
+
+    const fetchComments = async () => {
+      setLoadingComments(true);
+      try {
+        const response = await api.getComments(postId);
+        if (response.success && response.data) {
+          setComments(response.data.comments || []);
+        }
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      } finally {
+        setLoadingComments(false);
+      }
+    };
+
+    const handleSubmitComment = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!commentText.trim() || submittingComment) return;
+
+      setSubmittingComment(true);
+      try {
+        const response = await api.createComment(postId, commentText);
+        if (response.success) {
+          setCommentText("");
+          await fetchComments();
+          await fetchPosts(); // Refresh posts to update comment count
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to post comment";
+        alert(errorMessage);
+      } finally {
+        setSubmittingComment(false);
+      }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+      if (!confirm("Delete this comment?")) return;
+      try {
+        const response = await api.deleteComment(commentId);
+        if (response.success) {
+          await fetchComments();
+          await fetchPosts();
+        }
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+      }
+    };
+
+    return (
+      <div>
+        {/* Comments List */}
+        <div className="mb-4 max-h-64 space-y-3 overflow-y-auto">
+          {loadingComments ? (
+            <div className="py-4 text-center text-sm text-gray-500">Loading comments...</div>
+          ) : comments.length === 0 ? (
+            <div className="py-4 text-center text-sm text-gray-500">No comments yet</div>
+          ) : (
+            comments.map((comment) => (
+              <div key={comment._id} className="flex gap-2">
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-xs text-white">
+                    {typeof comment.userId === "object" ? comment.userId.name.charAt(0) : "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 rounded-lg bg-gray-50 p-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {typeof comment.userId === "object" ? comment.userId.name : "User"}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {formatTimeAgo(comment.createdAt)}
+                    </span>
+                    {(typeof comment.userId === "object" && comment.userId._id === user?._id) ||
+                    user?.role === "admin" ? (
+                      <button
+                        onClick={() => handleDeleteComment(comment._id)}
+                        className="ml-auto text-xs text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-gray-700">{comment.content}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Comment Input */}
+        <form onSubmit={handleSubmitComment} className="flex gap-2">
+          <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-blue-500 text-xs text-black">
+              {user?.name?.charAt(0) || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <Input
+            placeholder="Write a comment..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            className="flex-1 rounded-full border-gray-300 text-black"
+          />
+          <Button
+            type="submit"
+            disabled={!commentText.trim() || submittingComment}
+            size="sm"
+            className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </div>
+    );
   };
 
   if (!isAuthenticated) {
@@ -151,24 +340,47 @@ export default function DashboardPage() {
               <Input
                 type="text"
                 placeholder="Search"
-                className="h-11 w-full rounded-xl border-cyan-200 bg-gradient-to-r from-cyan-50 to-blue-50 pl-12 focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-200"
+                className="h-11 w-full rounded-xl border-cyan-200 bg-gradient-to-r from-cyan-50 to-blue-50 pl-12 focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-200 text-black"
               />
             </div>
           </div>
 
           {/* Top Nav Icons */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-cyan-600 hover:bg-cyan-50">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.push("/dashboard")}
+              className="relative rounded-xl text-cyan-600 hover:bg-cyan-50"
+            >
               <Home className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-purple-600 hover:bg-purple-50">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.push("/courses")}
+              className="relative rounded-xl text-purple-600 hover:bg-purple-50"
+              title="Courses"
+            >
               <Compass className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-blue-600 hover:bg-blue-50">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.push("/events")}
+              className="relative rounded-xl text-blue-600 hover:bg-blue-50"
+              title="Events"
+            >
               <Calendar className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-pink-600 hover:bg-pink-50">
-              <Settings className="h-6 w-6" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => router.push("/clubs")}
+              className="relative rounded-xl text-pink-600 hover:bg-pink-50"
+              title="Clubs"
+            >
+              <Users className="h-6 w-6" />
             </Button>
             <Button variant="ghost" size="icon" className="relative rounded-xl text-orange-600 hover:bg-orange-50">
               <Bell className="h-6 w-6" />
@@ -194,23 +406,38 @@ export default function DashboardPage() {
           {/* Left Sidebar */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20 space-y-4">
-              {/* Your Groups */}
+              {/* Quick Links */}
               <Card className="overflow-hidden border-0 bg-white shadow-lg">
                 <CardContent className="p-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">Your Group</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 cursor-pointer">
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">Quick Links</h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => router.push("/courses")}
+                      className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-400 to-pink-500">
+                        <Compass className="h-5 w-5 text-white" />
+                      </div>
+                      <span className="text-sm font-semibold text-cyan-900">Courses</span>
+                    </button>
+                    <button
+                      onClick={() => router.push("/clubs")}
+                      className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50"
+                    >
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500">
                         <Users className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-semibold text-cyan-900">Figma Community</span>
-                    </div>
-                    <div className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 cursor-pointer">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-400 to-pink-500">
-                        <Users className="h-5 w-5 text-white" />
+                      <span className="text-sm font-semibold text-cyan-900">Clubs</span>
+                    </button>
+                    <button
+                      onClick={() => router.push("/events")}
+                      className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-500">
+                        <Calendar className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-semibold text-cyan-900">Sketch Community</span>
-                    </div>
+                      <span className="text-sm font-semibold text-cyan-900">Events</span>
+                    </button>
                   </div>
                 </CardContent>
               </Card>
@@ -290,16 +517,58 @@ export default function DashboardPage() {
                     />
                   </div>
                 </div>
+
+                {/* Selected Files Preview */}
+                {selectedFiles.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="relative">
+                        {file.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index + 1}`}
+                            className="h-20 w-20 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-gray-200">
+                            <Video className="h-8 w-8 text-gray-500" />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-3 flex items-center justify-between border-t border-cyan-100 pt-3">
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" className="gap-2 text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700">
-                      <ImageIcon className="h-5 w-5" />
-                      <span className="hidden sm:inline text-sm font-medium">Photo</span>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2 text-purple-600 hover:bg-purple-50 hover:text-purple-700">
-                      <Video className="h-5 w-5" />
-                      <span className="hidden sm:inline text-sm font-medium">Video</span>
-                    </Button>
+                    <label htmlFor="file-upload">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2 text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700 cursor-pointer"
+                        asChild
+                      >
+                        <span>
+                          <ImageIcon className="h-5 w-5" />
+                          <span className="hidden sm:inline text-sm font-medium">Photo</span>
+                        </span>
+                      </Button>
+                    </label>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                     <Button variant="ghost" size="sm" className="gap-2 text-pink-600 hover:bg-pink-50 hover:text-pink-700">
                       <Smile className="h-5 w-5" />
                       <span className="hidden sm:inline text-sm">Feeling</span>
@@ -307,11 +576,11 @@ export default function DashboardPage() {
                   </div>
                   <Button
                     onClick={handleCreatePost}
-                    disabled={!postContent.trim() || isLoading}
+                    disabled={(!postContent.trim() && selectedFiles.length === 0) || isLoading}
                     className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 font-medium text-white hover:shadow-lg disabled:opacity-50"
                     size="sm"
                   >
-                    {isLoading ? "Posting..." : "Post"}
+                    {isLoading ? (uploadingMedia ? "Uploading..." : "Posting...") : "Post"}
                   </Button>
                 </div>
               </CardContent>
@@ -374,7 +643,37 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Post Content */}
-                      <p className="mb-4 text-sm leading-relaxed text-cyan-900 whitespace-pre-wrap">{post.content}</p>
+                      {post.content && (
+                        <p className="mb-4 text-sm leading-relaxed text-cyan-900 whitespace-pre-wrap">
+                          {post.content}
+                        </p>
+                      )}
+
+                      {/* Post Media */}
+                      {post.images && post.images.length > 0 && (
+                        <div className="mb-4 grid gap-2">
+                          {post.images.map((imageUrl, idx) => {
+                            const isVideo = imageUrl.includes("video") || imageUrl.endsWith(".mp4") || imageUrl.endsWith(".mov");
+                            return (
+                              <div key={idx} className="overflow-hidden rounded-lg">
+                                {isVideo ? (
+                                  <video
+                                    src={imageUrl}
+                                    controls
+                                    className="w-full max-h-96 object-contain bg-gray-100"
+                                  />
+                                ) : (
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Post media ${idx + 1}`}
+                                    className="w-full max-h-96 object-contain rounded-lg bg-gray-100"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {/* Post Stats */}
                       <div className="mb-3 flex items-center justify-between text-xs text-cyan-600 font-medium">
@@ -386,7 +685,9 @@ export default function DashboardPage() {
                           </div>
                           <span>{post.likes.length} likes</span>
                         </div>
-                        <span>{post.comments.length} comments</span>
+                        <span>
+                          {Array.isArray(post.comments) ? post.comments.length : 0} comments
+                        </span>
                       </div>
 
                       {/* Post Actions */}
@@ -396,19 +697,32 @@ export default function DashboardPage() {
                           size="sm"
                           onClick={() => handleLikePost(post._id)}
                           className={`flex-1 gap-2 ${
-                            post.likes.includes(user?._id || "")
+                            post.likes.some((likeId) => likeId.toString() === user?._id?.toString())
                               ? "text-red-500 hover:bg-red-50 hover:text-red-600"
                               : "text-cyan-600 hover:bg-red-50 hover:text-red-500"
                           }`}
                         >
                           <Heart
                             className={`h-5 w-5 ${
-                              post.likes.includes(user?._id || "") ? "fill-current" : ""
+                              post.likes.some((likeId) => likeId.toString() === user?._id?.toString()) ? "fill-current" : ""
                             }`}
                           />
                           <span className="text-sm font-medium">Like</span>
                         </Button>
-                        <Button variant="ghost" size="sm" className="flex-1 gap-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedComments);
+                            if (newExpanded.has(post._id)) {
+                              newExpanded.delete(post._id);
+                            } else {
+                              newExpanded.add(post._id);
+                            }
+                            setExpandedComments(newExpanded);
+                          }}
+                          className="flex-1 gap-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        >
                           <MessageCircle className="h-5 w-5" />
                           <span className="text-sm font-medium">Comment</span>
                         </Button>
@@ -417,6 +731,13 @@ export default function DashboardPage() {
                           <span className="text-sm font-medium">Share</span>
                         </Button>
                       </div>
+
+                      {/* Comments Section */}
+                      {expandedComments.has(post._id) && (
+                        <div className="mt-4 border-t border-cyan-100 pt-4">
+                          <CommentSection postId={post._id} />
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))

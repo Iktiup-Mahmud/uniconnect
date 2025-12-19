@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Mail, Lock, AlertCircle } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,25 +24,23 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/v1/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const response = await api.login(formData.email, formData.password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        localStorage.setItem("token", data.data.token);
-        localStorage.setItem("user", JSON.stringify(data.data.user));
+      if (response.success && response.data) {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
         router.push("/dashboard");
       } else {
-        setError(data.message || "Login failed. Please check your credentials.");
+        setError(
+          response.message || "Login failed. Please check your credentials."
+        );
       }
-    } catch (err) {
-      setError("Unable to connect to server. Please try again later.");
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Unable to connect to server. Please try again later.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -62,7 +61,9 @@ export default function LoginPage() {
 
           {/* Header */}
           <div className="mb-8">
-            <h1 className="mb-2 text-3xl font-bold text-gray-900">Welcome back</h1>
+            <h1 className="mb-2 text-3xl font-bold text-gray-900">
+              Welcome back
+            </h1>
             <p className="text-gray-600">
               Enter your credentials to access your account
             </p>
@@ -79,7 +80,10 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="email"
+                className="text-sm font-medium text-gray-700"
+              >
                 Email address
               </Label>
               <div className="relative">
@@ -100,7 +104,10 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                <Label
+                  htmlFor="password"
+                  className="text-sm font-medium text-gray-700"
+                >
                   Password
                 </Label>
                 <Link
@@ -151,7 +158,7 @@ export default function LoginPage() {
 
           {/* Sign Up Link */}
           <p className="text-center text-sm text-gray-600">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/register"
               className="font-semibold text-cyan-600 hover:text-cyan-500"
@@ -171,10 +178,10 @@ export default function LoginPage() {
             from around the world
           </h2>
           <p className="mb-8 text-lg text-cyan-100">
-            Join thousands of students already networking, sharing experiences, and
-            building meaningful connections on UniConnect.
+            Join thousands of students already networking, sharing experiences,
+            and building meaningful connections on UniConnect.
           </p>
-          
+
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8">
             <div>

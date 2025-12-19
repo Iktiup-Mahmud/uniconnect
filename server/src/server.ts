@@ -8,12 +8,21 @@ import { connectDB } from './config/database';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import postRoutes from './routes/post.routes';
+import portfolioRoutes from './routes/portfolio.routes';
+import courseRoutes from './routes/course.routes';
+import clubRoutes from './routes/club.routes';
+import eventRoutes from './routes/event.routes';
+import messageRoutes from './routes/message.routes';
+import notificationRoutes from './routes/notification.routes';
+import announcementRoutes from './routes/announcement.routes';
+import commentRoutes from './routes/comment.routes';
+import uploadRoutes from './routes/upload.routes';
 import { errorHandler } from './middlewares/errorHandler';
 import { notFound } from './middlewares/notFound';
 import logger from './utils/logger';
 
 const app: Application = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Connect to MongoDB
 connectDB();
@@ -48,6 +57,15 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/posts', postRoutes);
+app.use('/api/v1/comments', commentRoutes);
+app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/portfolios', portfolioRoutes);
+app.use('/api/v1/courses', courseRoutes);
+app.use('/api/v1/clubs', clubRoutes);
+app.use('/api/v1/events', eventRoutes);
+app.use('/api/v1/messages', messageRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/announcements', announcementRoutes);
 
 // Error Handlers
 app.use(notFound);

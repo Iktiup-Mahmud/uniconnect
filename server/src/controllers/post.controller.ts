@@ -7,6 +7,14 @@ export const getAllPosts = asyncHandler(
   async (_req: Request, res: Response) => {
     const posts = await Post.find()
       .populate("author", "name username avatar")
+      .populate({
+        path: "comments",
+        populate: {
+          path: "userId",
+          select: "name username avatar",
+        },
+        options: { sort: { createdAt: -1 }, limit: 5 }, // Get latest 5 comments
+      })
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -46,19 +54,25 @@ export const getPostById = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createPost = asyncHandler(async (req: Request, res: Response) => {
-  const { content, images } = req.body;
+  const { content, images, videos } = req.body;
 
-  if (!content) {
-    throw new AppError("Content is required", 400);
+  if (!content && (!images || images.length === 0) && (!videos || videos.length === 0)) {
+    throw new AppError("Post must have content, images, or videos", 400);
   }
 
   if (!req.user) {
     throw new AppError("User not authenticated", 401);
   }
 
+  // Combine images and videos into images array (for backward compatibility)
+  const mediaUrls = [
+      ...(images || []),
+      ...(videos || []),
+    ];
+
   const post = await Post.create({
-    content,
-    images: images || [],
+    content: content || "",
+    images: mediaUrls,
     author: req.user._id,
   });
 
@@ -132,11 +146,13 @@ export const likePost = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError("Post not found", 404);
   }
 
-  const userId = req.user._id.toString();
-  const likeIndex = post.likes.indexOf(userId);
+  const userId = req.user._id;
+  // Convert likes array to strings for comparison
+  const likesAsStrings = post.likes.map((like) => like.toString());
+  const likeIndex = likesAsStrings.indexOf(userId.toString());
 
   if (likeIndex === -1) {
-    // Like the post
+    // Like the post - push ObjectId, not string
     post.likes.push(userId);
   } else {
     // Unlike the post

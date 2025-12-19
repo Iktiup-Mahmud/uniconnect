@@ -11,7 +11,7 @@ export interface IUser extends Document {
   followers: mongoose.Types.ObjectId[];
   following: mongoose.Types.ObjectId[];
   isEmailVerified: boolean;
-  role: "user" | "admin";
+  role: "student" | "faculty" | "club_organizer" | "admin";
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -78,8 +78,8 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: ["student", "faculty", "club_organizer", "admin"],
+      default: "student",
     },
   },
   {
