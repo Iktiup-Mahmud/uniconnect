@@ -43,6 +43,11 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError("User not found", 404);
   }
 
+  // Check if user is updating their own profile
+  if (user._id.toString() !== req.user._id.toString()) {
+    throw new AppError("You can only update your own profile", 403);
+  }
+
   if (name) user.name = name;
   if (bio !== undefined) user.bio = bio;
   if (avatar !== undefined) user.avatar = avatar;
@@ -55,6 +60,49 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({
     status: "success",
     message: "User updated successfully",
+    data: {
+      user: updatedUser,
+    },
+  });
+});
+
+export const getProfile = asyncHandler(async (req: Request, res: Response) => {
+  const user = await User.findById(req.user._id).select("-password");
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Get user profile",
+    data: {
+      user,
+    },
+  });
+});
+
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  const { name, bio, avatar } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (name) user.name = name;
+  if (bio !== undefined) user.bio = bio;
+  if (avatar !== undefined) user.avatar = avatar;
+
+  await user.save();
+
+  const updatedUser = user.toObject() as any;
+  delete updatedUser.password;
+
+  res.status(200).json({
+    status: "success",
+    message: "Profile updated successfully",
     data: {
       user: updatedUser,
     },

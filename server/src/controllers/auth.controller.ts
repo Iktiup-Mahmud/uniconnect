@@ -7,7 +7,7 @@ import { Types } from 'mongoose';
 
 const generateToken = (userId: string): string => {
   const secret = process.env.JWT_SECRET || 'default-secret';
-  return jwt.sign({ id: userId }, secret, { expiresIn: '7d' });
+  return jwt.sign({ userId }, secret, { expiresIn: '7d' });
 };
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
@@ -39,7 +39,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     data: {
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         username: user.username,
         email: user.email,
@@ -73,7 +73,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     data: {
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         username: user.username,
         email: user.email,

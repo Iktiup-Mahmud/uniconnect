@@ -46,16 +46,20 @@ export const getPostById = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createPost = asyncHandler(async (req: Request, res: Response) => {
-  const { content, images, author } = req.body;
+  const { content, images } = req.body;
 
-  if (!content || !author) {
-    throw new AppError("Content and author are required", 400);
+  if (!content) {
+    throw new AppError("Content is required", 400);
+  }
+
+  if (!req.user) {
+    throw new AppError("User not authenticated", 401);
   }
 
   const post = await Post.create({
     content,
-    images,
-    author,
+    images: images || [],
+    author: req.user._id,
   });
 
   await post.populate("author", "name username avatar");
@@ -78,6 +82,11 @@ export const updatePost = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError("Post not found", 404);
   }
 
+  // Check if user is the author
+  if (post.author.toString() !== req.user._id.toString()) {
+    throw new AppError("You can only update your own posts", 403);
+  }
+
   if (content) post.content = content;
   if (images !== undefined) post.images = images;
 
@@ -94,17 +103,54 @@ export const updatePost = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deletePost = asyncHandler(async (req: Request, res: Response) => {
-  const post = await Post.findByIdAndDelete(req.params.id);
+  const post = await Post.findById(req.params.id);
 
   if (!post) {
     throw new AppError("Post not found", 404);
   }
+
+  // Check if user is the author
+  if (post.author.toString() !== req.user._id.toString()) {
+    throw new AppError("You can only delete your own posts", 403);
+  }
+
+  await Post.findByIdAndDelete(req.params.id);
 
   res.status(200).json({
     status: "success",
     message: "Post deleted successfully",
     data: {
       id: req.params.id,
+    },
+  });
+});
+
+export const likePost = asyncHandler(async (req: Request, res: Response) => {
+  const post = await Post.findById(req.params.id);
+
+  if (!post) {
+    throw new AppError("Post not found", 404);
+  }
+
+  const userId = req.user._id.toString();
+  const likeIndex = post.likes.indexOf(userId);
+
+  if (likeIndex === -1) {
+    // Like the post
+    post.likes.push(userId);
+  } else {
+    // Unlike the post
+    post.likes.splice(likeIndex, 1);
+  }
+
+  await post.save();
+  await post.populate("author", "name username avatar");
+
+  res.status(200).json({
+    status: "success",
+    message: likeIndex === -1 ? "Post liked" : "Post unliked",
+    data: {
+      post,
     },
   });
 });

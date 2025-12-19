@@ -2,11 +2,11 @@ import mongoose, { Document, Schema, Model } from "mongoose";
 
 // Post interface
 export interface IPost extends Document {
-  userId: mongoose.Types.ObjectId;
+  author: mongoose.Types.ObjectId;
   content: string;
   images?: string[];
   likes: mongoose.Types.ObjectId[];
-  comments: number;
+  comments: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -14,10 +14,10 @@ export interface IPost extends Document {
 // Post schema
 const postSchema = new Schema<IPost>(
   {
-    userId: {
+    author: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "User ID is required"],
+      required: [true, "Author ID is required"],
     },
     content: {
       type: String,
@@ -36,10 +36,12 @@ const postSchema = new Schema<IPost>(
         ref: "User",
       },
     ],
-    comments: {
-      type: Number,
-      default: 0,
-    },
+    comments: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Comment",
+      },
+    ],
   },
   {
     timestamps: true,
@@ -47,7 +49,7 @@ const postSchema = new Schema<IPost>(
 );
 
 // Indexes
-postSchema.index({ userId: 1, createdAt: -1 });
+postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ createdAt: -1 });
 
 // Create and export model
