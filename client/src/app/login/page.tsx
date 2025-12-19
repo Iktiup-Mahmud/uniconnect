@@ -92,7 +92,7 @@ export default function LoginPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="h-12 rounded-xl border-gray-300 pl-11 focus:border-cyan-500 focus:ring-cyan-500"
+                  className="h-12 rounded-xl border-gray-300 pl-11 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
                   required
                 />
               </div>
@@ -120,7 +120,7 @@ export default function LoginPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
-                  className="h-12 rounded-xl border-gray-300 pl-11 focus:border-cyan-500 focus:ring-cyan-500"
+                  className="h-12 rounded-xl border-gray-300 pl-11 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
                   required
                 />
               </div>

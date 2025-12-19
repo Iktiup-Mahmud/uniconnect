@@ -44,7 +44,7 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Check if user is updating their own profile
-  if (user._id.toString() !== req.user._id.toString()) {
+  if (user._id?.toString() !== req.user?._id?.toString()) {
     throw new AppError("You can only update your own profile", 403);
   }
 
