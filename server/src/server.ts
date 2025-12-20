@@ -1,10 +1,12 @@
 import 'dotenv/config';
 import express, { Application } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import { connectDB } from './config/database';
+import { initializeSocket } from './config/socket';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import postRoutes from './routes/post.routes';
@@ -22,6 +24,7 @@ import { notFound } from './middlewares/notFound';
 import logger from './utils/logger';
 
 const app: Application = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 5001;
 
 // Connect to MongoDB
@@ -71,7 +74,10 @@ app.use('/api/v1/announcements', announcementRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+// Initialize Socket.io
+initializeSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

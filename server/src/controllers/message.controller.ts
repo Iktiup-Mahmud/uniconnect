@@ -4,6 +4,7 @@ import { asyncHandler } from "../middlewares";
 import Conversation from "../models/Conversation.model";
 import Message from "../models/Message.model";
 import { AppError } from "../utils/appError";
+import { getIO } from "../config/socket";
 
 export const getConversations = asyncHandler(
   async (req: Request, res: Response) => {
@@ -136,6 +137,52 @@ export const sendMessage = asyncHandler(async (req: Request, res: Response) => {
   await conversation.save();
 
   await message.populate("senderId", "name username avatar");
+
+  // Emit Socket.io event for real-time messaging
+  try {
+    const io = getIO();
+    // Convert to plain object and ensure all fields are present
+    const messageObj = message.toObject ? message.toObject() : JSON.parse(JSON.stringify(message));
+    
+    console.log(`\n📤 Emitting new_message to conversation:${conversationId}`);
+    console.log(`Message ID: ${messageObj._id}, Content: ${messageObj.content?.substring(0, 50)}`);
+    
+    // Check which sockets are in this room
+    try {
+      const socketsInRoom = await io.in(`conversation:${conversationId}`).fetchSockets();
+      console.log(`👥 Number of sockets in conversation:${conversationId}: ${socketsInRoom.length}`);
+      if (socketsInRoom.length === 0) {
+        console.log("⚠️ WARNING: No sockets found in this conversation room!");
+      }
+      socketsInRoom.forEach((s: any) => {
+        console.log(`  - Socket ID: ${s.id}, User: ${s.userId || 'unknown'}`);
+      });
+    } catch (err) {
+      console.log("⚠️ Error fetching sockets:", err);
+    }
+    
+    // Emit to all users in the conversation room (including sender)
+    io.to(`conversation:${conversationId}`).emit("new_message", {
+      conversationId,
+      message: messageObj,
+    });
+    
+    console.log(`✅ Message emitted to room conversation:${conversationId}\n`);
+
+    // Also notify other participants in their personal rooms (excluding sender)
+    conversation.participants.forEach((participantId: any) => {
+      if (participantId.toString() !== req.user._id.toString()) {
+        console.log(`Notifying user:${participantId} about new message`);
+        io.to(`user:${participantId}`).emit("message_notification", {
+          conversationId,
+          message: messageObj,
+        });
+      }
+    });
+  } catch (error) {
+    // Socket.io might not be initialized, continue anyway
+    console.error("Socket.io error:", error);
+  }
 
   res.status(201).json({
     status: "success",

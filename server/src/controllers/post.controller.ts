@@ -139,6 +139,31 @@ export const deletePost = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+export const getUserPosts = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.params.userId || req.user._id;
+  
+  const posts = await Post.find({ author: userId })
+    .populate("author", "name username avatar")
+    .populate({
+      path: "comments",
+      populate: {
+        path: "userId",
+        select: "name username avatar",
+      },
+      options: { sort: { createdAt: -1 }, limit: 5 },
+    })
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: "success",
+    message: "User posts retrieved successfully",
+    data: {
+      posts,
+      count: posts.length,
+    },
+  });
+});
+
 export const likePost = asyncHandler(async (req: Request, res: Response) => {
   const post = await Post.findById(req.params.id);
 
