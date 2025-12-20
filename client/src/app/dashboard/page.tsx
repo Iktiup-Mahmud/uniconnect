@@ -8,11 +8,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Heart, 
-  MessageCircle, 
-  Share2, 
-  LogOut, 
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  LogOut,
   Users,
   Image as ImageIcon,
   Video,
@@ -23,11 +23,10 @@ import {
   MoreHorizontal,
   Clock,
   Send,
-  Bookmark,
   Home,
   Compass,
   Calendar,
-  Settings
+  Settings,
 } from "lucide-react";
 import { Post, User, Comment } from "@/types";
 import { api } from "@/lib/api";
@@ -41,8 +40,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
-  const [commentTexts, setCommentTexts] = useState<Record<string, string>>({});
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(
+    new Set()
+  );
+  const [friends, setFriends] = useState<User[]>([]);
 
   const fetchPosts = async () => {
     try {
@@ -59,7 +60,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userData = localStorage.getItem("user");
-    
+
     if (!token) {
       router.push("/login");
     } else {
@@ -68,8 +69,30 @@ export default function DashboardPage() {
         setUser(JSON.parse(userData));
       }
       fetchPosts();
+      fetchFriends();
     }
   }, [router]);
+
+  const fetchFriends = async () => {
+    try {
+      const response = await api.getUsers();
+      if (response.success && response.data) {
+        const userData = localStorage.getItem("user");
+        const currentUser = userData ? JSON.parse(userData) : null;
+        // Filter out current user and limit to 9 friends
+        const filteredFriends = (response.data.users || [])
+          .filter((friend: User) => {
+            return (
+              friend._id !== currentUser?._id && friend._id !== currentUser?.id
+            );
+          })
+          .slice(0, 9);
+        setFriends(filteredFriends);
+      }
+    } catch (error) {
+      console.error("Error fetching friends:", error);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -83,7 +106,8 @@ export default function DashboardPage() {
   };
 
   const handleCreatePost = async () => {
-    if ((!postContent.trim() && selectedFiles.length === 0) || isLoading) return;
+    if ((!postContent.trim() && selectedFiles.length === 0) || isLoading)
+      return;
 
     setIsLoading(true);
     setUploadingMedia(true);
@@ -131,7 +155,8 @@ export default function DashboardPage() {
       }
     } catch (error: unknown) {
       console.error("Error creating post:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to create post";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create post";
       alert(errorMessage);
     } finally {
       setIsLoading(false);
@@ -152,7 +177,7 @@ export default function DashboardPage() {
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm("Are you sure you want to delete this post?")) return;
-    
+
     try {
       const response = await api.deletePost(postId);
       if (response.success) {
@@ -162,7 +187,8 @@ export default function DashboardPage() {
       }
     } catch (error: unknown) {
       console.error("Error deleting post:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to delete post";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete post";
       alert(errorMessage);
     }
   };
@@ -171,6 +197,42 @@ export default function DashboardPage() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     router.push("/");
+  };
+
+  const handleStartConversation = async (userId: string) => {
+    try {
+      const response = await api.createConversation({
+        participantIds: [userId],
+        type: "direct",
+      });
+      if (response.success && response.data) {
+        router.push(
+          `/messages?conversationId=${response.data.conversation._id}`
+        );
+      }
+    } catch (error: any) {
+      console.error("Error creating conversation:", error);
+      // If conversation already exists, try to find it
+      try {
+        const conversationsResponse = await api.getConversations();
+        if (conversationsResponse.success && conversationsResponse.data) {
+          const existingConv = conversationsResponse.data.conversations.find(
+            (conv: any) => {
+              return conv.participants.some((p: any) => {
+                const pId = typeof p === "object" ? p._id : p;
+                return pId === userId;
+              });
+            }
+          );
+          if (existingConv) {
+            router.push(`/messages?conversationId=${existingConv._id}`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error finding conversation:", err);
+      }
+    }
   };
 
   const formatTimeAgo = (date: string) => {
@@ -222,7 +284,8 @@ export default function DashboardPage() {
           await fetchPosts(); // Refresh posts to update comment count
         }
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to post comment";
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to post comment";
         alert(errorMessage);
       } finally {
         setSubmittingComment(false);
@@ -247,26 +310,35 @@ export default function DashboardPage() {
         {/* Comments List */}
         <div className="mb-4 max-h-64 space-y-3 overflow-y-auto">
           {loadingComments ? (
-            <div className="py-4 text-center text-sm text-gray-500">Loading comments...</div>
+            <div className="py-4 text-center text-sm text-gray-500">
+              Loading comments...
+            </div>
           ) : comments.length === 0 ? (
-            <div className="py-4 text-center text-sm text-gray-500">No comments yet</div>
+            <div className="py-4 text-center text-sm text-gray-500">
+              No comments yet
+            </div>
           ) : (
             comments.map((comment) => (
               <div key={comment._id} className="flex gap-2">
                 <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-500 text-xs text-white">
-                    {typeof comment.userId === "object" ? comment.userId.name.charAt(0) : "U"}
+                    {typeof comment.userId === "object"
+                      ? comment.userId.name.charAt(0)
+                      : "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 rounded-lg bg-gray-50 p-2">
                   <div className="mb-1 flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">
-                      {typeof comment.userId === "object" ? comment.userId.name : "User"}
+                      {typeof comment.userId === "object"
+                        ? comment.userId.name
+                        : "User"}
                     </span>
                     <span className="text-xs text-gray-500">
                       {formatTimeAgo(comment.createdAt)}
                     </span>
-                    {(typeof comment.userId === "object" && comment.userId._id === user?._id) ||
+                    {(typeof comment.userId === "object" &&
+                      comment.userId._id === user?._id) ||
                     user?.role === "admin" ? (
                       <button
                         onClick={() => handleDeleteComment(comment._id)}
@@ -330,7 +402,9 @@ export default function DashboardPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/30">
               <Users className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">UniConnect</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+              UniConnect
+            </span>
           </div>
 
           {/* Search Bar */}
@@ -347,54 +421,108 @@ export default function DashboardPage() {
 
           {/* Top Nav Icons */}
           <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => router.push("/dashboard")}
               className="relative rounded-xl text-cyan-600 hover:bg-cyan-50"
             >
               <Home className="h-6 w-6" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/search")}
+              className="relative rounded-xl text-gray-600 hover:bg-gray-50"
+              title="Search"
+            >
+              <Search className="h-6 w-6" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => router.push("/courses")}
               className="relative rounded-xl text-purple-600 hover:bg-purple-50"
               title="Courses"
             >
               <Compass className="h-6 w-6" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => router.push("/events")}
               className="relative rounded-xl text-blue-600 hover:bg-blue-50"
               title="Events"
             >
               <Calendar className="h-6 w-6" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => router.push("/clubs")}
               className="relative rounded-xl text-pink-600 hover:bg-pink-50"
               title="Clubs"
             >
               <Users className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" className="relative rounded-xl text-orange-600 hover:bg-orange-50">
+            {user?.role === "admin" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/admin")}
+                className="relative rounded-xl text-purple-600 hover:bg-purple-50"
+                title="Admin Panel"
+              >
+                <Settings className="h-6 w-6" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/messages")}
+              className="relative rounded-xl text-green-600 hover:bg-green-50"
+              title="Messages"
+            >
+              <MessageCircle className="h-6 w-6" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/notifications")}
+              className="relative rounded-xl text-orange-600 hover:bg-orange-50"
+              title="Notifications"
+            >
               <Bell className="h-6 w-6" />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
             </Button>
-            <div className="ml-2 flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-100 to-blue-100 px-3 py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/settings")}
+              className="relative rounded-xl text-gray-600 hover:bg-gray-50"
+              title="Settings"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            <button
+              onClick={() => router.push("/profile")}
+              className="ml-2 flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-100 to-blue-100 px-3 py-2 hover:from-cyan-200 hover:to-blue-200 transition-all cursor-pointer"
+            >
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-sm font-semibold text-white">
                   {user?.name?.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden text-sm font-semibold text-cyan-700 lg:block">{user?.name?.split(" ")[0] || "User"}</span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-xl text-cyan-600 hover:bg-cyan-50">
+              <span className="hidden text-sm font-semibold text-cyan-700 lg:block">
+                {user?.name?.split(" ")[0] || "User"}
+              </span>
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="rounded-xl text-cyan-600 hover:bg-cyan-50"
+            >
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -409,7 +537,9 @@ export default function DashboardPage() {
               {/* Quick Links */}
               <Card className="overflow-hidden border-0 bg-white shadow-lg">
                 <CardContent className="p-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">Quick Links</h3>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                    Quick Links
+                  </h3>
                   <div className="space-y-2">
                     <button
                       onClick={() => router.push("/courses")}
@@ -418,7 +548,9 @@ export default function DashboardPage() {
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-400 to-pink-500">
                         <Compass className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-semibold text-cyan-900">Courses</span>
+                      <span className="text-sm font-semibold text-cyan-900">
+                        Courses
+                      </span>
                     </button>
                     <button
                       onClick={() => router.push("/clubs")}
@@ -427,7 +559,9 @@ export default function DashboardPage() {
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500">
                         <Users className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-semibold text-cyan-900">Clubs</span>
+                      <span className="text-sm font-semibold text-cyan-900">
+                        Clubs
+                      </span>
                     </button>
                     <button
                       onClick={() => router.push("/events")}
@@ -436,7 +570,9 @@ export default function DashboardPage() {
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-500">
                         <Calendar className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-semibold text-cyan-900">Events</span>
+                      <span className="text-sm font-semibold text-cyan-900">
+                        Events
+                      </span>
                     </button>
                   </div>
                 </CardContent>
@@ -445,31 +581,69 @@ export default function DashboardPage() {
               {/* Friends List */}
               <Card className="overflow-hidden border-0 bg-white shadow-lg">
                 <CardContent className="p-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">Friends</h3>
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-cyan-600">
+                    Friends
+                  </h3>
                   <div className="space-y-2">
-                    {["Eleanor Pena", "Leslie Alexander", "Brooklyn Simmons", "Arlene McCoy", "Jerome Bell", "Darlene Robertson", "Kathryn Murphy", "Theresa Webb", "Darrell Steward"].map((name, i) => (
-                      <div key={i} className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 cursor-pointer">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className={`text-xs font-semibold text-white ${
-                              i % 4 === 0 ? "bg-gradient-to-br from-blue-400 to-cyan-500" :
-                              i % 4 === 1 ? "bg-gradient-to-br from-purple-400 to-pink-500" :
-                              i % 4 === 2 ? "bg-gradient-to-br from-orange-400 to-red-500" :
-                              "bg-gradient-to-br from-green-400 to-teal-500"
-                            }`}>
-                              {name.split(" ").map(n => n[0]).join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-semibold text-cyan-900">{name}</span>
-                        </div>
-                        {i % 3 === 0 && (
-                          <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                        )}
-                        {i === 0 && <span className="text-xs text-cyan-500">11 min</span>}
-                        {i === 2 && <span className="text-xs text-cyan-500">9 min</span>}
-                        {i === 7 && <span className="text-xs text-cyan-500">11 min</span>}
+                    {friends.length === 0 ? (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        No friends yet
                       </div>
-                    ))}
+                    ) : (
+                      friends.map((friend, i) => (
+                        <div
+                          key={friend._id}
+                          className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 cursor-pointer group"
+                          onClick={(e) => {
+                            // Check if clicking on message icon
+                            const target = e.target as HTMLElement;
+                            if (target.closest(".message-icon")) {
+                              handleStartConversation(friend._id);
+                            } else {
+                              router.push(`/profile?userId=${friend._id}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Avatar className="h-8 w-8 flex-shrink-0">
+                              <AvatarFallback
+                                className={`text-xs font-semibold text-white ${
+                                  i % 4 === 0
+                                    ? "bg-gradient-to-br from-blue-400 to-cyan-500"
+                                    : i % 4 === 1
+                                    ? "bg-gradient-to-br from-purple-400 to-pink-500"
+                                    : i % 4 === 2
+                                    ? "bg-gradient-to-br from-orange-400 to-red-500"
+                                    : "bg-gradient-to-br from-green-400 to-teal-500"
+                                }`}
+                              >
+                                {friend.name
+                                  ?.split(" ")
+                                  .map((n: string) => n[0])
+                                  .join("") ||
+                                  friend.username?.charAt(0).toUpperCase() ||
+                                  "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-semibold text-cyan-900 truncate">
+                              {friend.name || friend.username || "Unknown"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartConversation(friend._id);
+                              }}
+                              className="message-icon opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-cyan-100"
+                              title="Send message"
+                            >
+                              <MessageCircle className="h-4 w-4 text-cyan-600" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -480,21 +654,46 @@ export default function DashboardPage() {
           <main className="lg:col-span-6">
             {/* Story/Avatar Row */}
             <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-              {["Quinn", "Alex", "Sarah", "Sebastian", "Stacy", "Jose", "Alisa", "Andrew"].map((name, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer">
-                  <div className={`rounded-full p-0.5 ${i === 0 ? "bg-gradient-to-br from-cyan-400 to-blue-500" : "bg-gray-200"}`}>
+              {[
+                "Quinn",
+                "Alex",
+                "Sarah",
+                "Sebastian",
+                "Stacy",
+                "Jose",
+                "Alisa",
+                "Andrew",
+              ].map((name, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer"
+                >
+                  <div
+                    className={`rounded-full p-0.5 ${
+                      i === 0
+                        ? "bg-gradient-to-br from-cyan-400 to-blue-500"
+                        : "bg-gray-200"
+                    }`}
+                  >
                     <Avatar className="h-14 w-14 border-2 border-white">
-                      <AvatarFallback className={`text-sm font-semibold text-white ${
-                        i % 4 === 0 ? "bg-gradient-to-br from-blue-400 to-cyan-500" :
-                        i % 4 === 1 ? "bg-gradient-to-br from-purple-400 to-pink-500" :
-                        i % 4 === 2 ? "bg-gradient-to-br from-orange-400 to-red-500" :
-                        "bg-gradient-to-br from-green-400 to-teal-500"
-                      }`}>
+                      <AvatarFallback
+                        className={`text-sm font-semibold text-white ${
+                          i % 4 === 0
+                            ? "bg-gradient-to-br from-blue-400 to-cyan-500"
+                            : i % 4 === 1
+                            ? "bg-gradient-to-br from-purple-400 to-pink-500"
+                            : i % 4 === 2
+                            ? "bg-gradient-to-br from-orange-400 to-red-500"
+                            : "bg-gradient-to-br from-green-400 to-teal-500"
+                        }`}
+                      >
                         {name[0]}
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  <span className="text-xs font-semibold text-cyan-700">{name}</span>
+                  <span className="text-xs font-semibold text-cyan-700">
+                    {name}
+                  </span>
                 </div>
               ))}
             </div>
@@ -557,7 +756,9 @@ export default function DashboardPage() {
                       >
                         <span>
                           <ImageIcon className="h-5 w-5" />
-                          <span className="hidden sm:inline text-sm font-medium">Photo</span>
+                          <span className="hidden sm:inline text-sm font-medium">
+                            Photo
+                          </span>
                         </span>
                       </Button>
                     </label>
@@ -569,18 +770,29 @@ export default function DashboardPage() {
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <Button variant="ghost" size="sm" className="gap-2 text-pink-600 hover:bg-pink-50 hover:text-pink-700">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2 text-pink-600 hover:bg-pink-50 hover:text-pink-700"
+                    >
                       <Smile className="h-5 w-5" />
                       <span className="hidden sm:inline text-sm">Feeling</span>
                     </Button>
                   </div>
                   <Button
                     onClick={handleCreatePost}
-                    disabled={(!postContent.trim() && selectedFiles.length === 0) || isLoading}
+                    disabled={
+                      (!postContent.trim() && selectedFiles.length === 0) ||
+                      isLoading
+                    }
                     className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 font-medium text-white hover:shadow-lg disabled:opacity-50"
                     size="sm"
                   >
-                    {isLoading ? (uploadingMedia ? "Uploading..." : "Posting...") : "Post"}
+                    {isLoading
+                      ? uploadingMedia
+                        ? "Uploading..."
+                        : "Posting..."
+                      : "Post"}
                   </Button>
                 </div>
               </CardContent>
@@ -594,7 +806,9 @@ export default function DashboardPage() {
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cyan-100 to-blue-100">
                       <MessageCircle className="h-8 w-8 text-cyan-600" />
                     </div>
-                    <h3 className="mb-2 text-lg font-bold text-cyan-900">No posts yet</h3>
+                    <h3 className="mb-2 text-lg font-bold text-cyan-900">
+                      No posts yet
+                    </h3>
                     <p className="text-sm text-cyan-600">
                       Be the first to share something with your network!
                     </p>
@@ -602,7 +816,10 @@ export default function DashboardPage() {
                 </Card>
               ) : (
                 posts.map((post) => (
-                  <Card key={post._id} className="border-0 bg-white shadow-lg transition-all hover:shadow-xl hover:-translate-y-1">
+                  <Card
+                    key={post._id}
+                    className="border-0 bg-white shadow-lg transition-all hover:shadow-xl hover:-translate-y-1"
+                  >
                     <CardContent className="p-5">
                       {/* Post Header */}
                       <div className="mb-4 flex items-start justify-between">
@@ -614,8 +831,13 @@ export default function DashboardPage() {
                           </Avatar>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-cyan-900">{post.author.name}</h4>
-                              <Badge variant="secondary" className="rounded-full bg-gradient-to-r from-cyan-100 to-blue-100 px-2 py-0 text-xs font-semibold text-cyan-700">
+                              <h4 className="font-bold text-cyan-900">
+                                {post.author.name}
+                              </h4>
+                              <Badge
+                                variant="secondary"
+                                className="rounded-full bg-gradient-to-r from-cyan-100 to-blue-100 px-2 py-0 text-xs font-semibold text-cyan-700"
+                              >
                                 {post.author.username}
                               </Badge>
                             </div>
@@ -636,7 +858,11 @@ export default function DashboardPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-cyan-400 hover:bg-cyan-50">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-cyan-400 hover:bg-cyan-50"
+                          >
                             <MoreHorizontal className="h-5 w-5" />
                           </Button>
                         </div>
@@ -653,9 +879,15 @@ export default function DashboardPage() {
                       {post.images && post.images.length > 0 && (
                         <div className="mb-4 grid gap-2">
                           {post.images.map((imageUrl, idx) => {
-                            const isVideo = imageUrl.includes("video") || imageUrl.endsWith(".mp4") || imageUrl.endsWith(".mov");
+                            const isVideo =
+                              imageUrl.includes("video") ||
+                              imageUrl.endsWith(".mp4") ||
+                              imageUrl.endsWith(".mov");
                             return (
-                              <div key={idx} className="overflow-hidden rounded-lg">
+                              <div
+                                key={idx}
+                                className="overflow-hidden rounded-lg"
+                              >
                                 {isVideo ? (
                                   <video
                                     src={imageUrl}
@@ -686,7 +918,10 @@ export default function DashboardPage() {
                           <span>{post.likes.length} likes</span>
                         </div>
                         <span>
-                          {Array.isArray(post.comments) ? post.comments.length : 0} comments
+                          {Array.isArray(post.comments)
+                            ? post.comments.length
+                            : 0}{" "}
+                          comments
                         </span>
                       </div>
 
@@ -697,14 +932,22 @@ export default function DashboardPage() {
                           size="sm"
                           onClick={() => handleLikePost(post._id)}
                           className={`flex-1 gap-2 ${
-                            post.likes.some((likeId) => likeId.toString() === user?._id?.toString())
+                            post.likes.some(
+                              (likeId) =>
+                                likeId.toString() === user?._id?.toString()
+                            )
                               ? "text-red-500 hover:bg-red-50 hover:text-red-600"
                               : "text-cyan-600 hover:bg-red-50 hover:text-red-500"
                           }`}
                         >
                           <Heart
                             className={`h-5 w-5 ${
-                              post.likes.some((likeId) => likeId.toString() === user?._id?.toString()) ? "fill-current" : ""
+                              post.likes.some(
+                                (likeId) =>
+                                  likeId.toString() === user?._id?.toString()
+                              )
+                                ? "fill-current"
+                                : ""
                             }`}
                           />
                           <span className="text-sm font-medium">Like</span>
@@ -726,7 +969,11 @@ export default function DashboardPage() {
                           <MessageCircle className="h-5 w-5" />
                           <span className="text-sm font-medium">Comment</span>
                         </Button>
-                        <Button variant="ghost" size="sm" className="flex-1 gap-2 text-purple-600 hover:bg-purple-50 hover:text-purple-700">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 gap-2 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+                        >
                           <Share2 className="h-5 w-5" />
                           <span className="text-sm font-medium">Share</span>
                         </Button>
@@ -760,7 +1007,9 @@ export default function DashboardPage() {
                     className="h-48 w-full object-cover"
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                    <p className="text-sm font-semibold text-white">How to create Youtube subscriber grow faster</p>
+                    <p className="text-sm font-semibold text-white">
+                      How to create Youtube subscriber grow faster
+                    </p>
                   </div>
                 </div>
                 <CardContent className="p-4">
@@ -771,7 +1020,9 @@ export default function DashboardPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-cyan-900">James Anderson</p>
+                      <p className="text-sm font-semibold text-cyan-900">
+                        James Anderson
+                      </p>
                       <p className="flex items-center gap-1 text-xs text-cyan-500">
                         <Clock className="h-3 w-3" />
                         23 minutes ago
@@ -793,10 +1044,17 @@ export default function DashboardPage() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="text-sm text-cyan-800">
-                          <span className="font-bold text-cyan-900">Aron Cooper</span> left 6 comments on{" "}
-                          <span className="font-bold text-cyan-600">Anywhere Video</span>
+                          <span className="font-bold text-cyan-900">
+                            Aron Cooper
+                          </span>{" "}
+                          left 6 comments on{" "}
+                          <span className="font-bold text-cyan-600">
+                            Anywhere Video
+                          </span>
                         </p>
-                        <p className="mt-1 text-xs text-cyan-500">53 minutes ago</p>
+                        <p className="mt-1 text-xs text-cyan-500">
+                          53 minutes ago
+                        </p>
                       </div>
                     </div>
 
@@ -808,10 +1066,17 @@ export default function DashboardPage() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="text-sm text-cyan-800">
-                          <span className="font-bold text-cyan-900">Kiran Bator</span> posted in{" "}
-                          <span className="font-bold text-cyan-600">Design Thinking</span>
+                          <span className="font-bold text-cyan-900">
+                            Kiran Bator
+                          </span>{" "}
+                          posted in{" "}
+                          <span className="font-bold text-cyan-600">
+                            Design Thinking
+                          </span>
                         </p>
-                        <p className="mt-1 text-xs text-cyan-500">55 minutes ago</p>
+                        <p className="mt-1 text-xs text-cyan-500">
+                          55 minutes ago
+                        </p>
                       </div>
                     </div>
 
@@ -823,7 +1088,10 @@ export default function DashboardPage() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="text-sm text-cyan-800">
-                          <span className="font-bold text-cyan-900">John Doe</span> reacted to your comment here 😍
+                          <span className="font-bold text-cyan-900">
+                            John Doe
+                          </span>{" "}
+                          reacted to your comment here 😍
                         </p>
                         <p className="mt-1 text-xs text-cyan-500">1 hour ago</p>
                       </div>
@@ -837,9 +1105,14 @@ export default function DashboardPage() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="text-sm text-cyan-800">
-                          <span className="font-bold text-cyan-900">Stacey Patel</span> commented: @you Which ones
+                          <span className="font-bold text-cyan-900">
+                            Stacey Patel
+                          </span>{" "}
+                          commented: @you Which ones
                         </p>
-                        <p className="mt-1 text-xs text-cyan-500">2 hours ago</p>
+                        <p className="mt-1 text-xs text-cyan-500">
+                          2 hours ago
+                        </p>
                       </div>
                     </div>
 
@@ -851,10 +1124,17 @@ export default function DashboardPage() {
                       </Avatar>
                       <div className="flex-1">
                         <p className="text-sm text-cyan-800">
-                          <span className="font-bold text-cyan-900">Sarah Harding</span> shared{" "}
-                          <span className="font-bold text-cyan-600">Tips and Tricks</span>
+                          <span className="font-bold text-cyan-900">
+                            Sarah Harding
+                          </span>{" "}
+                          shared{" "}
+                          <span className="font-bold text-cyan-600">
+                            Tips and Tricks
+                          </span>
                         </p>
-                        <p className="mt-1 text-xs text-cyan-500">3 hours ago</p>
+                        <p className="mt-1 text-xs text-cyan-500">
+                          3 hours ago
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -876,7 +1156,10 @@ export default function DashboardPage() {
                         placeholder="Add your comment"
                         className="flex-1 bg-transparent text-sm text-cyan-900 outline-none placeholder:text-cyan-400"
                       />
-                      <Button size="icon" className="h-8 w-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500">
+                      <Button
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                      >
                         <Send className="h-4 w-4 text-white" />
                       </Button>
                     </div>

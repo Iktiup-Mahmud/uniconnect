@@ -4,31 +4,97 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import {
   Users,
-  Plus,
-  Search,
   Calendar,
+  ArrowLeft,
+  Search,
   UserPlus,
   UserMinus,
-  Settings,
 } from "lucide-react";
-import { Club, User } from "@/types";
+import { Club } from "@/types";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function ClubsPage() {
   const router = useRouter();
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    fetchClubs();
+  }, [router, selectedCategory]);
+
+  const fetchClubs = async () => {
+    try {
+      const params: any = {};
+      if (selectedCategory) params.category = selectedCategory;
+      const response = await api.getClubs(params);
+      if (response.success && response.data) {
+        setClubs(response.data.clubs || []);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load clubs");
+    }
+  };
+
+  const handleJoinClub = async (clubId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await api.joinClub(clubId);
+      if (response.success) {
+        toast.success("Joined club successfully");
+        fetchClubs();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to join club");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLeaveClub = async (clubId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await api.leaveClub(clubId);
+      if (response.success) {
+        toast.success("Left club successfully");
+        fetchClubs();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to leave club");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isMember = (club: Club) => {
+    const userData = localStorage.getItem("user");
+    if (!userData) return false;
+    const user = JSON.parse(userData);
+    return club.members?.some(
+      (m: any) =>
+        (typeof m === "object" ? m._id : m) === user._id ||
+        (typeof m === "object" ? m._id : m) === user.id
+    );
+  };
+
+  const filteredClubs = clubs.filter((club) =>
+    club.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    club.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const categories = [
-    "all",
     "Academic",
     "Sports",
     "Arts",
@@ -39,244 +105,132 @@ export default function ClubsPage() {
     "Other",
   ];
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
-
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
-
-    fetchClubs();
-  }, [router]);
-
-  const fetchClubs = async () => {
-    try {
-      const response = await api.getClubs();
-      if (response.success && response.data) {
-        setClubs(response.data.clubs || []);
-      }
-    } catch (error) {
-      console.error("Error fetching clubs:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleJoin = async (clubId: string) => {
-    try {
-      const response = await api.joinClub(clubId);
-      if (response.success) {
-        await fetchClubs();
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to join club";
-      alert(errorMessage);
-    }
-  };
-
-  const handleLeave = async (clubId: string) => {
-    try {
-      const response = await api.leaveClub(clubId);
-      if (response.success) {
-        await fetchClubs();
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to leave club";
-      alert(errorMessage);
-    }
-  };
-
-  const filteredClubs = clubs.filter((club) => {
-    const matchesSearch =
-      club.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      club.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "all" || club.category === selectedCategory;
-    return matchesSearch && matchesCategory && club.isActive;
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"></div>
-          <p className="text-gray-600">Loading clubs...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-purple-50 p-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-              Clubs
-            </h1>
-            <p className="text-gray-600">Join clubs and connect with like-minded students</p>
-          </div>
-          {(user?.role === "club_organizer" || user?.role === "admin") && (
-            <Button
-              onClick={() => router.push("/clubs/create")}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Create Club
-            </Button>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dashboard")}
+            className="mb-4 rounded-xl border-gray-300 bg-white hover:bg-gray-50 text-gray-700 shadow-sm"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold mb-4 text-gray-900">Clubs</h1>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex flex-col gap-4 md:flex-row">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search clubs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filter */}
+        <div className="mb-6 flex gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search clubs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 rounded-xl border-gray-300 focus:border-cyan-500 focus:ring-cyan-500"
+              />
+            </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedCategory === "" ? "default" : "outline"}
+              onClick={() => setSelectedCategory("")}
+              size="sm"
+              className={selectedCategory === "" ? "rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30" : "rounded-xl border-gray-300"}
+            >
+              All
+            </Button>
             {categories.map((cat) => (
               <Button
                 key={cat}
                 variant={selectedCategory === cat ? "default" : "outline"}
                 onClick={() => setSelectedCategory(cat)}
-                className={`whitespace-nowrap ${
-                  selectedCategory === cat
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-500"
-                    : ""
-                }`}
+                size="sm"
+                className={selectedCategory === cat ? "rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30" : "rounded-xl border-gray-300"}
               >
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {cat}
               </Button>
             ))}
           </div>
         </div>
 
         {/* Clubs Grid */}
-        {filteredClubs.length === 0 ? (
-          <Card className="border-0 bg-white shadow-lg">
-            <CardContent className="py-16 text-center">
-              <Users className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-              <h3 className="mb-2 text-lg font-bold text-gray-900">No clubs found</h3>
-              <p className="text-sm text-gray-600">
-                {searchTerm || selectedCategory !== "all"
-                  ? "Try adjusting your filters"
-                  : "No clubs available at the moment"}
-              </p>
+        {clubs.length === 0 ? (
+          <Card className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <CardContent className="py-8 text-center text-gray-500">
+              No clubs found. Check back later!
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClubs.map((club) => {
-              const isMember = club.members.some(
-                (m) => m._id === user?._id || (typeof m === "string" && m === user?._id)
-              );
-              const isOrganizer =
-                club.organizer._id === user?._id ||
-                (typeof club.organizer === "string" && club.organizer === user?._id);
-
+              const member = isMember(club);
               return (
-                <Card
-                  key={club._id}
-                  className="cursor-pointer border-0 bg-white shadow-lg transition-all hover:shadow-xl hover:-translate-y-1"
-                  onClick={() => router.push(`/clubs/${club._id}`)}
-                >
-                  {club.imageUrl && (
-                    <div className="h-48 w-full overflow-hidden rounded-t-lg">
+                <Card key={club._id} className="rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between mb-2">
+                      <CardTitle className="text-xl">{club.name}</CardTitle>
+                      <Badge className="rounded-lg">{club.category}</Badge>
+                    </div>
+                    {club.imageUrl && (
                       <img
                         src={club.imageUrl}
                         alt={club.name}
-                        className="h-full w-full object-cover"
+                        className="w-full h-32 object-cover rounded-xl mb-2"
                       />
-                    </div>
-                  )}
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-xl text-gray-900">{club.name}</CardTitle>
-                      <Badge
-                        variant="secondary"
-                        className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700"
-                      >
-                        {club.category}
-                      </Badge>
-                    </div>
+                    )}
                   </CardHeader>
                   <CardContent>
-                    {club.description && (
-                      <p className="mb-4 line-clamp-2 text-sm text-gray-600">
-                        {club.description}
-                      </p>
-                    )}
-
-                    <div className="mb-4 flex items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {club.description || "No description available"}
+                    </p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                      <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        <span>{club.members.length} members</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>{club.events.length} events</span>
+                        <span>
+                          {club.members?.length || 0} member
+                          {(club.members?.length || 0) !== 1 ? "s" : ""}
+                        </span>
                       </div>
                     </div>
-
-                    <div className="mb-4 flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-gradient-to-br from-cyan-400 to-blue-500 text-xs text-white">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage
+                          src={
+                            typeof club.organizer === "object"
+                              ? club.organizer.avatar
+                              : ""
+                          }
+                        />
+                        <AvatarFallback>
                           {typeof club.organizer === "object"
-                            ? club.organizer.name.charAt(0)
+                            ? club.organizer.name?.charAt(0).toUpperCase()
                             : "O"}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="text-sm">
-                        <p className="font-semibold text-gray-900">
-                          {typeof club.organizer === "object"
-                            ? club.organizer.name
-                            : "Organizer"}
-                        </p>
-                      </div>
+                      <span className="text-sm text-gray-600">
+                        {typeof club.organizer === "object"
+                          ? club.organizer.name
+                          : "Organizer"}
+                      </span>
                     </div>
-
-                    {isOrganizer ? (
+                    {member ? (
                       <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/clubs/${club._id}/manage`);
-                        }}
-                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500"
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        Manage Club
-                      </Button>
-                    ) : isMember ? (
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLeave(club._id);
-                        }}
                         variant="outline"
-                        className="w-full"
+                        onClick={() => handleLeaveClub(club._id)}
+                        disabled={isLoading}
+                        className="w-full rounded-xl border-gray-300 hover:bg-gray-50"
                       >
                         <UserMinus className="mr-2 h-4 w-4" />
                         Leave Club
                       </Button>
                     ) : (
                       <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleJoin(club._id);
-                        }}
-                        className="w-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                        onClick={() => handleJoinClub(club._id)}
+                        disabled={isLoading || !club.isActive}
+                        className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 disabled:opacity-50"
                       >
                         <UserPlus className="mr-2 h-4 w-4" />
                         Join Club
@@ -292,4 +246,3 @@ export default function ClubsPage() {
     </div>
   );
 }
-

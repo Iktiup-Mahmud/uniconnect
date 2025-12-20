@@ -106,6 +106,28 @@ export const api = {
     return handleResponse<{ posts: Post[] }>(response);
   },
 
+  async getUserPosts(userId?: string): Promise<ApiResponse<{ posts: Post[] }>> {
+    const url = userId
+      ? `${API_URL}/posts/user/${userId}`
+      : `${API_URL}/posts/user`;
+    const response = await fetch(url, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ posts: Post[] }>(response);
+  },
+
+  async updatePost(
+    postId: string,
+    data: { content?: string; images?: string[] }
+  ): Promise<ApiResponse<{ post: Post }>> {
+    const response = await fetch(`${API_URL}/posts/${postId}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ post: Post }>(response);
+  },
+
   async createPost(data: {
     content?: string;
     images?: string[];
@@ -136,8 +158,22 @@ export const api = {
   },
 
   // Users
+  async getUsers(): Promise<ApiResponse<{ users: User[] }>> {
+    const response = await fetch(`${API_URL}/users`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ users: User[] }>(response);
+  },
+
   async getUser(userId: string): Promise<ApiResponse<{ user: User }>> {
     const response = await fetch(`${API_URL}/users/${userId}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ user: User }>(response);
+  },
+
+  async getProfile(): Promise<ApiResponse<{ user: User }>> {
+    const response = await fetch(`${API_URL}/users/profile`, {
       headers: getAuthHeaders(),
     });
     return handleResponse<{ user: User }>(response);
@@ -152,6 +188,14 @@ export const api = {
       body: JSON.stringify(data),
     });
     return handleResponse<{ user: User }>(response);
+  },
+
+  async deleteUser(userId: string): Promise<ApiResponse<null>> {
+    const response = await fetch(`${API_URL}/users/${userId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<null>(response);
   },
 
   // Portfolio
