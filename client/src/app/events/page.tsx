@@ -249,7 +249,7 @@ export default function EventsPage() {
                         disabled={
                           isLoading ||
                           isPast ||
-                          (event.maxAttendees &&
+                          Boolean(event.maxAttendees &&
                             (event.attendees?.length || 0) >= event.maxAttendees)
                         }
                         className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 disabled:opacity-50"

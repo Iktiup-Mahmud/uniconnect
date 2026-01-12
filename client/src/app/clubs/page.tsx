@@ -168,17 +168,22 @@ export default function ClubsPage() {
             {filteredClubs.map((club) => {
               const member = isMember(club);
               return (
-                <Card key={club._id} className="rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-lg transition-shadow">
+                <Card
+                  key={club._id}
+                  className="rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-lg transition-shadow"
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between mb-2">
-                      <CardTitle className="text-xl">{club.name}</CardTitle>
+                      <CardTitle className="text-xl text-black">
+                        {club.name}
+                      </CardTitle>
                       <Badge className="rounded-lg">{club.category}</Badge>
                     </div>
                     {club.imageUrl && (
                       <img
                         src={club.imageUrl}
                         alt={club.name}
-                        className="w-full h-32 object-cover rounded-xl mb-2"
+                        className="w-full h-32 object-cover text-black rounded-xl mb-2"
                       />
                     )}
                   </CardHeader>

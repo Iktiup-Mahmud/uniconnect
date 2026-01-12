@@ -28,7 +28,7 @@ import {
   Calendar,
   Settings,
 } from "lucide-react";
-import { Post, User, Comment } from "@/types";
+import { Post, User, Comment as CommentType } from "@/types";
 import { api } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [expandedComments, setExpandedComments] = useState<Set<string>>(
     new Set()
   );
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentType[]>>({});
   const [friends, setFriends] = useState<User[]>([]);
 
   const fetchPosts = async () => {
@@ -248,21 +249,25 @@ export default function DashboardPage() {
 
   // Comment Section Component
   const CommentSection = ({ postId }: { postId: string }) => {
-    const [comments, setComments] = useState<Comment[]>([]);
     const [commentText, setCommentText] = useState("");
     const [loadingComments, setLoadingComments] = useState(false);
     const [submittingComment, setSubmittingComment] = useState(false);
+    
+    const comments = commentsByPost[postId] || [];
 
     useEffect(() => {
       fetchComments();
-    }, [postId]);
+    }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchComments = async () => {
       setLoadingComments(true);
       try {
         const response = await api.getComments(postId);
         if (response.success && response.data) {
-          setComments(response.data.comments || []);
+          setCommentsByPost((prev) => ({
+            ...prev,
+            [postId]: (response.data.comments || []) as unknown as CommentType[],
+          }));
         }
       } catch (error) {
         console.error("Error fetching comments:", error);

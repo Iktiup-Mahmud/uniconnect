@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ interface Certification {
   link?: string;
 }
 
-export default function PortfolioPage() {
+function PortfolioPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId");
@@ -311,7 +311,9 @@ export default function PortfolioPage() {
                   <div className="mb-2 flex items-center gap-2 justify-center md:justify-start">
                     <h2 className="text-3xl font-bold">{currentUser?.name || "User"}</h2>
                     {portfolio.isVerified && (
-                      <CheckCircle className="h-6 w-6 text-yellow-300" title="Verified" />
+                      <span title="Verified">
+                        <CheckCircle className="h-6 w-6 text-yellow-300" />
+                      </span>
                     )}
                   </div>
                   <p className="mb-3 text-xl text-cyan-50">{portfolio.title}</p>
@@ -540,3 +542,10 @@ export default function PortfolioPage() {
   );
 }
 
+export default function PortfolioPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading portfolio...</div>}>
+      <PortfolioPageContent />
+    </Suspense>
+  );
+}

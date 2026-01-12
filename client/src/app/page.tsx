@@ -263,7 +263,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-12 border-t pt-8 text-center text-sm text-gray-600">
-            <p>&copy; 2025 UniConnect. All rights reserved.</p>
+            <p>&copy; 2026 UniConnect. All rights reserved.</p>
           </div>
         </div>
       </footer>

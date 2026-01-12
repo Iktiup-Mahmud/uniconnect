@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,39 +21,9 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import { Post, User } from "@/types";
+import { Post, User, Club, Event, Course } from "@/types";
 
-interface Club {
-  _id: string;
-  name: string;
-  description: string;
-  category: string;
-  members: string[];
-  coverImage?: string;
-}
-
-interface Event {
-  _id: string;
-  title: string;
-  description: string;
-  date: string;
-  location: string;
-  category: string;
-  attendees: string[];
-  organizer: { name: string; _id: string };
-}
-
-interface Course {
-  _id: string;
-  name: string;
-  code: string;
-  description: string;
-  instructor: { name: string; _id: string };
-  students: string[];
-  credits: number;
-}
-
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryParam = searchParams.get("q") || "";
@@ -363,7 +333,7 @@ export default function SearchPage() {
                         <div className="flex items-center gap-4 text-sm text-gray-500">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            {new Date(event.date).toLocaleDateString()}
+                            {new Date(event.eventDate).toLocaleDateString()}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
@@ -395,7 +365,7 @@ export default function SearchPage() {
                         <p className="mb-3 line-clamp-2 text-sm text-gray-600">{course.description}</p>
                         <div className="flex items-center justify-between text-sm text-gray-500">
                           <span>Instructor: {course.instructor?.name}</span>
-                          <span>{course.credits} credits</span>
+                          <span>{course.semester} {course.year}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -564,7 +534,7 @@ export default function SearchPage() {
                       <div className="space-y-2 text-sm text-gray-500">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-cyan-600" />
-                          <span>{new Date(event.date).toLocaleDateString("en-US", {
+                          <span>{new Date(event.eventDate).toLocaleDateString("en-US", {
                             weekday: "short",
                             year: "numeric",
                             month: "short",
@@ -616,7 +586,7 @@ export default function SearchPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
-                          {course.credits} credits
+                          {course.semester} {course.year}
                         </span>
                       </div>
                       <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
@@ -650,3 +620,11 @@ export default function SearchPage() {
   );
 }
 
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading search...</div>}>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
