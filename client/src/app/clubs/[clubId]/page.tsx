@@ -57,7 +57,7 @@ export default function ClubDetailPage() {
 
   const fetchClubEvents = async () => {
     try {
-      const response = await api.getEvents(`?clubId=${clubId}&upcoming=true`);
+      const response = await api.getEvents({ clubId, upcoming: true });
       if (response.success && response.data) {
         setClubEvents(response.data.events || []);
       }
