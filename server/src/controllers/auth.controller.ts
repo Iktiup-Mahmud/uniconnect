@@ -23,7 +23,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Validate role if provided (defaults to student)
-  const validRoles = ["student", "faculty", "club_organizer"];
+  const validRoles = ["student", "faculty"];
   const userRole = role && validRoles.includes(role) ? role : "student";
 
   // Create new user

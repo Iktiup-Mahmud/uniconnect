@@ -77,7 +77,7 @@ export const api = {
     email: string;
     username: string;
     password: string;
-    role?: "student" | "faculty" | "club_organizer";
+    role?: "student" | "faculty";
   }): Promise<AuthResponse> {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
@@ -251,6 +251,15 @@ export const api = {
     return handleResponse<{ course: Course }>(response);
   },
 
+  async getCourseById(
+    courseId: string
+  ): Promise<ApiResponse<{ course: Course }>> {
+    const response = await fetch(`${API_URL}/courses/${courseId}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ course: Course }>(response);
+  },
+
   async createCourse(data: {
     code: string;
     name: string;
@@ -354,6 +363,13 @@ export const api = {
     return handleResponse<{ club: Club }>(response);
   },
 
+  async getClubById(clubId: string): Promise<ApiResponse<{ club: Club }>> {
+    const response = await fetch(`${API_URL}/clubs/${clubId}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ club: Club }>(response);
+  },
+
   async createClub(data: {
     name: string;
     description?: string;
@@ -419,6 +435,13 @@ export const api = {
   },
 
   async getEvent(eventId: string): Promise<ApiResponse<{ event: Event }>> {
+    const response = await fetch(`${API_URL}/events/${eventId}`, {
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<{ event: Event }>(response);
+  },
+
+  async getEventById(eventId: string): Promise<ApiResponse<{ event: Event }>> {
     const response = await fetch(`${API_URL}/events/${eventId}`, {
       headers: getAuthHeaders(),
     });

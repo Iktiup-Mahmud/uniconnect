@@ -5,7 +5,7 @@ export interface User {
   username: string;
   bio?: string;
   avatar?: string;
-  role: "student" | "faculty" | "club_organizer" | "admin";
+  role: "student" | "faculty" | "admin";
   followers?: string[];
   following?: string[];
   createdAt: string;

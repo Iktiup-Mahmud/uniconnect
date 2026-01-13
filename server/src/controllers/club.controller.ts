@@ -40,8 +40,9 @@ export const getClubById = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createClub = asyncHandler(async (req: Request, res: Response) => {
-  if (req.user?.role !== "club_organizer" && req.user?.role !== "admin") {
-    throw new AppError("Only club organizers can create clubs", 403);
+  // Any authenticated user (student/faculty) can create a club
+  if (!req.user) {
+    throw new AppError("Authentication required", 401);
   }
 
   const { name, description, category, imageUrl } = req.body;

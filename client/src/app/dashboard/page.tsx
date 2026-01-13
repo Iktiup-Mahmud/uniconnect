@@ -43,7 +43,9 @@ export default function DashboardPage() {
   const [expandedComments, setExpandedComments] = useState<Set<string>>(
     new Set()
   );
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentType[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentType[]>
+  >({});
   const [friends, setFriends] = useState<User[]>([]);
 
   const fetchPosts = async () => {
@@ -252,20 +254,21 @@ export default function DashboardPage() {
     const [commentText, setCommentText] = useState("");
     const [loadingComments, setLoadingComments] = useState(false);
     const [submittingComment, setSubmittingComment] = useState(false);
-    
+
     const comments = commentsByPost[postId] || [];
 
     const fetchComments = useCallback(async () => {
       // Only fetch if we haven't loaded comments for this post yet
       if (commentsByPost[postId]) return;
-      
+
       setLoadingComments(true);
       try {
         const response = await api.getComments(postId);
         if (response.success && response.data) {
           setCommentsByPost((prev) => ({
             ...prev,
-            [postId]: (response.data.comments || []) as unknown as CommentType[],
+            [postId]: (response.data.comments ||
+              []) as unknown as CommentType[],
           }));
         }
       } catch (error) {
@@ -286,7 +289,8 @@ export default function DashboardPage() {
         if (response.success && response.data) {
           setCommentsByPost((prev) => ({
             ...prev,
-            [postId]: (response.data.comments || []) as unknown as CommentType[],
+            [postId]: (response.data.comments ||
+              []) as unknown as CommentType[],
           }));
         }
       } catch (error) {
