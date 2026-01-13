@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -255,11 +255,31 @@ export default function DashboardPage() {
     
     const comments = commentsByPost[postId] || [];
 
+    const fetchComments = useCallback(async () => {
+      // Only fetch if we haven't loaded comments for this post yet
+      if (commentsByPost[postId]) return;
+      
+      setLoadingComments(true);
+      try {
+        const response = await api.getComments(postId);
+        if (response.success && response.data) {
+          setCommentsByPost((prev) => ({
+            ...prev,
+            [postId]: (response.data.comments || []) as unknown as CommentType[],
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching comments:", error);
+      } finally {
+        setLoadingComments(false);
+      }
+    }, [postId]); // Only recreate if postId changes
+
     useEffect(() => {
       fetchComments();
-    }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchComments]);
 
-    const fetchComments = async () => {
+    const refreshComments = async () => {
       setLoadingComments(true);
       try {
         const response = await api.getComments(postId);
@@ -285,7 +305,7 @@ export default function DashboardPage() {
         const response = await api.createComment(postId, commentText);
         if (response.success) {
           setCommentText("");
-          await fetchComments();
+          await refreshComments();
           await fetchPosts(); // Refresh posts to update comment count
         }
       } catch (error: unknown) {
@@ -302,7 +322,7 @@ export default function DashboardPage() {
       try {
         const response = await api.deleteComment(commentId);
         if (response.success) {
-          await fetchComments();
+          await refreshComments();
           await fetchPosts();
         }
       } catch (error) {
