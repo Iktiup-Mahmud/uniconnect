@@ -24,7 +24,7 @@ export default function RegisterPage() {
     username: "",
     password: "",
     confirmPassword: "",
-    role: "student" as "student" | "faculty" | "club_organizer",
+    role: "student" as "student" | "faculty",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -277,10 +277,7 @@ export default function RegisterPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      role: e.target.value as
-                        | "student"
-                        | "faculty"
-                        | "club_organizer",
+                      role: e.target.value as "student" | "faculty",
                     })
                   }
                   className="h-12 w-full rounded-xl border border-gray-300 bg-white pl-11 pr-4 text-gray-900 focus:border-cyan-500 focus:ring-cyan-500"
@@ -288,7 +285,6 @@ export default function RegisterPage() {
                 >
                   <option value="student">Student</option>
                   <option value="faculty">Faculty</option>
-                  <option value="club_organizer">Club Organizer</option>
                 </select>
               </div>
             </div>
