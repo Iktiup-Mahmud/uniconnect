@@ -233,31 +233,48 @@ export default function EventsPage() {
                         </span>
                       </div>
                     </div>
-                    {attending ? (
+                    <div className="space-y-2">
                       <Button
-                        variant="outline"
-                        onClick={() => handleCancelRsvp(event._id)}
-                        disabled={isLoading || isPast}
-                        className="w-full rounded-xl border-gray-300 hover:bg-gray-50"
+                        onClick={() => router.push(`/events/${event._id}`)}
+                        variant="default"
+                        className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40"
                       >
-                        <UserMinus className="mr-2 h-4 w-4" />
-                        Cancel RSVP
+                        <Calendar className="mr-2 h-4 w-4" />
+                        View Details
                       </Button>
-                    ) : (
-                      <Button
-                        onClick={() => handleRsvp(event._id)}
-                        disabled={
-                          isLoading ||
-                          isPast ||
-                          Boolean(event.maxAttendees &&
-                            (event.attendees?.length || 0) >= event.maxAttendees)
-                        }
-                        className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 disabled:opacity-50"
-                      >
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        RSVP
-                      </Button>
-                    )}
+                      {!isPast && (
+                        attending ? (
+                          <Button
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelRsvp(event._id);
+                            }}
+                            disabled={isLoading}
+                            className="w-full rounded-xl border-gray-300 hover:bg-gray-50"
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Cancel RSVP
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRsvp(event._id);
+                            }}
+                            disabled={
+                              isLoading ||
+                              Boolean(event.maxAttendees &&
+                                (event.attendees?.length || 0) >= event.maxAttendees)
+                            }
+                            className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/40 disabled:opacity-50"
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            RSVP
+                          </Button>
+                        )
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );

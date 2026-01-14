@@ -146,4 +146,3 @@ export const updateClub = asyncHandler(async (req: Request, res: Response) => {
     data: { club },
   });
 });
-

@@ -10,17 +10,50 @@ export const getAllCourses = asyncHandler(async (req: Request, res: Response) =>
   if (semester) filter.semester = semester;
   if (year) filter.year = parseInt(year as string);
 
-  // Students see only their enrolled courses, faculty see their courses, admin sees all
-  if (req.user?.role === "student") {
-    filter.students = req.user._id;
-  } else if (req.user?.role === "faculty") {
+  // DEBUG: Log user info and filter
+  console.log("\n========================================");
+  console.log("🔍 getAllCourses called");
+  console.log("👤 User:", req.user?.name, "| Role:", req.user?.role, "| ID:", req.user?._id);
+  console.log("🔎 Initial Filter:", JSON.stringify(filter));
+
+  // Check total courses in database FIRST
+  const totalInDB = await Course.countDocuments();
+  console.log("📊 Total courses in database:", totalInDB);
+
+  // Show all courses to students so they can browse and enroll
+  // Faculty see only their courses, admin sees all
+  if (req.user?.role === "faculty") {
     filter.instructor = req.user._id;
+    console.log("👔 Faculty filter applied:", JSON.stringify(filter));
+  } else {
+    console.log("🎓 Student/Admin - showing all courses");
   }
 
   const courses = await Course.find(filter)
     .populate("instructor", "name username avatar")
     .populate("students", "name username avatar")
     .sort({ createdAt: -1 });
+
+  // DEBUG: Log results
+  console.log("📚 Courses found with filter:", courses.length);
+  console.log("📝 Course codes:", courses.map(c => c.code).join(", "));
+  
+  // If no courses found, try to find ANY courses
+  if (courses.length === 0) {
+    console.log("⚠️ No courses found! Checking database...");
+    const anyCourses = await Course.find({}).limit(5);
+    console.log("🔍 Sample courses in DB:", anyCourses.length);
+    if (anyCourses.length > 0) {
+      console.log("📋 Sample course:", {
+        code: anyCourses[0].code,
+        name: anyCourses[0].name,
+        semester: anyCourses[0].semester,
+        year: anyCourses[0].year,
+        instructor: anyCourses[0].instructor
+      });
+    }
+  }
+  console.log("========================================\n");
 
   res.status(200).json({
     status: "success",

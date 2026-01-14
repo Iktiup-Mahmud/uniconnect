@@ -173,7 +173,10 @@ export default function EventDetailPage() {
                   <Badge>{event.category}</Badge>
                   {isPast && <Badge variant="outline">Past Event</Badge>}
                   {isEventFull && !isPast && (
-                    <Badge variant="outline" className="border-red-500 text-red-500">
+                    <Badge
+                      variant="outline"
+                      className="border-red-500 text-red-500"
+                    >
                       Full
                     </Badge>
                   )}
@@ -216,7 +219,9 @@ export default function EventDetailPage() {
                     <h3 className="font-medium">Attendees</h3>
                     <p className="text-gray-600">
                       {event.attendees?.length || 0}
-                      {event.maxAttendees ? ` / ${event.maxAttendees}` : ""}{" "}
+                      {event.maxAttendees
+                        ? ` / ${event.maxAttendees}`
+                        : ""}{" "}
                       people attending
                     </p>
                   </div>

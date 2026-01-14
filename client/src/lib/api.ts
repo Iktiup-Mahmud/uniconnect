@@ -42,12 +42,18 @@ const handleResponse = async <T>(
   response: Response
 ): Promise<ApiResponse<T>> => {
   const backendData = await response.json();
+  
+  // DEBUG: Log the raw response
+  console.log("🔍 API handleResponse - URL:", response.url);
+  console.log("📊 Backend Data:", backendData);
 
   if (!response.ok) {
     throw new Error(backendData.message || `API error: ${response.statusText}`);
   }
 
-  return convertResponse<T>(backendData);
+  const converted = convertResponse<T>(backendData);
+  console.log("✨ Converted Response:", converted);
+  return converted;
 };
 
 export const api = {

@@ -30,6 +30,7 @@ export default function ClubDetailPage() {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [clubEvents, setClubEvents] = useState<Event[]>([]);
   const [joining, setJoining] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -39,6 +40,7 @@ export default function ClubDetailPage() {
     }
     fetchClub();
     fetchClubEvents();
+    fetchAnnouncements();
   }, [clubId]);
 
   const fetchClub = async () => {
@@ -66,11 +68,23 @@ export default function ClubDetailPage() {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await api.getAnnouncements({ clubId });
+      if (response.success && response.data) {
+        setAnnouncements(response.data.announcements || []);
+      }
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+    }
+  };
+
   const checkMembership = (clubData: Club) => {
     if (!user) return;
 
     const member = clubData.members.some(
-      (member) => (typeof member === "object" ? member._id : member) === user._id
+      (member) =>
+        (typeof member === "object" ? member._id : member) === user._id
     );
     setIsMember(member);
 
@@ -143,7 +157,11 @@ export default function ClubDetailPage() {
       <div className="mx-auto max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="mb-6 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/clubs")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/clubs")}
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Clubs
           </Button>
@@ -221,12 +239,52 @@ export default function ClubDetailPage() {
 
         {/* Content Tabs (Only for members) */}
         {canViewContent && (
-          <Tabs defaultValue="events" className="space-y-6">
+          <Tabs defaultValue="announcements" className="space-y-6">
             <TabsList>
+              <TabsTrigger value="announcements">Announcements</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="about">About</TabsTrigger>
             </TabsList>
+
+            {/* Announcements Tab */}
+            <TabsContent value="announcements">
+              <Card>
+                <CardHeader>
+                  <h2 className="text-xl font-semibold">Club Announcements</h2>
+                </CardHeader>
+                <CardContent>
+                  {announcements.length === 0 ? (
+                    <p className="text-center text-gray-500">
+                      No announcements yet
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {announcements.map((announcement) => (
+                        <Card key={announcement._id} className="border-l-4 border-l-purple-500">
+                          <CardContent className="pt-6">
+                            <div className="mb-2 flex items-start justify-between">
+                              <h3 className="text-lg font-semibold">
+                                {announcement.title}
+                              </h3>
+                              {announcement.isPinned && (
+                                <Badge variant="outline">Pinned</Badge>
+                              )}
+                            </div>
+                            <p className="mb-3 text-gray-600 whitespace-pre-wrap">
+                              {announcement.content}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Posted: {formatDate(announcement.createdAt)}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Events Tab */}
             <TabsContent value="events">
@@ -270,7 +328,9 @@ export default function ClubDetailPage() {
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Users className="h-4 w-4" />
-                                    <span>{event.attendees?.length || 0} attending</span>
+                                    <span>
+                                      {event.attendees?.length || 0} attending
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -293,8 +353,10 @@ export default function ClubDetailPage() {
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {club.members.map((member, index) => {
-                      const memberData = typeof member === "object" ? member : null;
-                      const memberId = typeof member === "object" ? member._id : member;
+                      const memberData =
+                        typeof member === "object" ? member : null;
+                      const memberId =
+                        typeof member === "object" ? member._id : member;
                       const organizerId =
                         typeof club.organizer === "object"
                           ? club.organizer._id

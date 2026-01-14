@@ -84,12 +84,8 @@ const userSchema = new Schema<IUser>(
   },
   {
     timestamps: true,
-  },
+  }
 );
-
-// Index for better query performance
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -108,7 +104,7 @@ userSchema.pre("save", async function (next) {
 
 // Method to compare passwords
 userSchema.methods.comparePassword = async function (
-  candidatePassword: string,
+  candidatePassword: string
 ): Promise<boolean> {
   try {
     return await bcrypt.compare(candidatePassword, this.password);

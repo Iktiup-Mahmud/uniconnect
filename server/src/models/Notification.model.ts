@@ -74,8 +74,8 @@ const notificationSchema = new Schema<INotification>(
   }
 );
 
+// Compound index for efficient notification queries
 notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
-notificationSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model<INotification>("Notification", notificationSchema);
 

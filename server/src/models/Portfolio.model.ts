@@ -101,7 +101,7 @@ const portfolioSchema = new Schema<IPortfolio>(
   }
 );
 
-portfolioSchema.index({ userId: 1 });
+// Index for isPublic queries (userId already indexed via unique: true)
 portfolioSchema.index({ isPublic: 1 });
 
 export default mongoose.model<IPortfolio>("Portfolio", portfolioSchema);

@@ -16,6 +16,7 @@ import {
   Video,
   Download,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Course, User } from "@/types";
@@ -30,6 +31,7 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isInstructor, setIsInstructor] = useState(false);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -46,6 +48,7 @@ export default function CourseDetailPage() {
       if (response.success && response.data) {
         setCourse(response.data.course);
         checkEnrollment(response.data.course);
+        fetchAnnouncements();
       }
     } catch (error: any) {
       console.error("Error fetching course:", error);
@@ -58,17 +61,30 @@ export default function CourseDetailPage() {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await api.getAnnouncements({ courseId });
+      if (response.success && response.data) {
+        setAnnouncements(response.data.announcements || []);
+      }
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+    }
+  };
+
   const checkEnrollment = (courseData: Course) => {
     if (!user) return;
-    
+
     const enrolled = courseData.students.some(
-      (student) => (typeof student === "object" ? student._id : student) === user._id
+      (student) =>
+        (typeof student === "object" ? student._id : student) === user._id
     );
     setIsEnrolled(enrolled);
 
-    const instructor = typeof courseData.instructor === "object" 
-      ? courseData.instructor._id 
-      : courseData.instructor;
+    const instructor =
+      typeof courseData.instructor === "object"
+        ? courseData.instructor._id
+        : courseData.instructor;
     setIsInstructor(instructor === user._id);
   };
 
@@ -164,16 +180,78 @@ export default function CourseDetailPage() {
           </CardHeader>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="materials" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="students">Students</TabsTrigger>
-          </TabsList>
+        {/* Access Control Notice */}
+        {!isEnrolled && !isInstructor && user?.role !== "admin" && (
+          <Card className="mb-6 border-yellow-200 bg-yellow-50">
+            <CardContent className="pt-6 text-center">
+              <AlertCircle className="mx-auto mb-3 h-12 w-12 text-yellow-600" />
+              <p className="mb-2 text-lg font-semibold text-yellow-900">
+                Enrollment Required
+              </p>
+              <p className="text-yellow-800">
+                You must enroll in this course to access materials, assignments, and other content.
+              </p>
+              <Button
+                className="mt-4"
+                onClick={() => router.push("/courses")}
+              >
+                Go back to enroll
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Materials Tab */}
-          <TabsContent value="materials">
+        {/* Tabs - Only show if enrolled */}
+        {(isEnrolled || isInstructor || user?.role === "admin") && (
+          <Tabs defaultValue="announcements" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="announcements">Announcements</TabsTrigger>
+              <TabsTrigger value="materials">Materials</TabsTrigger>
+              <TabsTrigger value="assignments">Assignments</TabsTrigger>
+              <TabsTrigger value="students">Students</TabsTrigger>
+            </TabsList>
+
+            {/* Announcements Tab */}
+            <TabsContent value="announcements">
+              <Card>
+                <CardHeader>
+                  <h2 className="text-xl font-semibold">Course Announcements</h2>
+                </CardHeader>
+                <CardContent>
+                  {announcements.length === 0 ? (
+                    <p className="text-center text-gray-500">
+                      No announcements yet
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {announcements.map((announcement) => (
+                        <Card key={announcement._id} className="border-l-4 border-l-blue-500">
+                          <CardContent className="pt-6">
+                            <div className="mb-2 flex items-start justify-between">
+                              <h3 className="text-lg font-semibold">
+                                {announcement.title}
+                              </h3>
+                              {announcement.isPinned && (
+                                <Badge variant="outline">Pinned</Badge>
+                              )}
+                            </div>
+                            <p className="mb-3 text-gray-600 whitespace-pre-wrap">
+                              {announcement.content}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              Posted: {formatDate(announcement.createdAt)}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Materials Tab */}
+            <TabsContent value="materials">
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-semibold">Course Materials</h2>
@@ -218,8 +296,8 @@ export default function CourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Assignments Tab */}
-          <TabsContent value="assignments">
+            {/* Assignments Tab */}
+            <TabsContent value="assignments">
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-semibold">Assignments</h2>
@@ -246,9 +324,7 @@ export default function CourseDetailPage() {
                           <div className="flex items-center gap-4 text-sm text-gray-500">
                             <div className="flex items-center gap-1">
                               <Clock className="h-4 w-4" />
-                              <span>
-                                Due: {formatDate(assignment.dueDate)}
-                              </span>
+                              <span>Due: {formatDate(assignment.dueDate)}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Users className="h-4 w-4" />
@@ -267,41 +343,42 @@ export default function CourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Students Tab */}
-          <TabsContent value="students">
-            <Card>
-              <CardHeader>
-                <h2 className="text-xl font-semibold">Enrolled Students</h2>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {course.students.map((student, index) => {
-                    const studentData =
-                      typeof student === "object" ? student : null;
-                    return (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 rounded-lg border p-3"
-                      >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white">
-                          {studentData?.name.charAt(0) || "?"}
+            {/* Students Tab */}
+            <TabsContent value="students">
+              <Card>
+                <CardHeader>
+                  <h2 className="text-xl font-semibold">Enrolled Students</h2>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {course.students.map((student, index) => {
+                      const studentData =
+                        typeof student === "object" ? student : null;
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-3 rounded-lg border p-3"
+                        >
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white">
+                            {studentData?.name.charAt(0) || "?"}
+                          </div>
+                          <div>
+                            <h3 className="font-medium">
+                              {studentData?.name || "Unknown"}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              @{studentData?.username || "unknown"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-medium">
-                            {studentData?.name || "Unknown"}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            @{studentData?.username || "unknown"}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );

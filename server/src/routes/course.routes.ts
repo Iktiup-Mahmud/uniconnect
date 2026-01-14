@@ -8,11 +8,11 @@ import {
   createAssignment,
   submitAssignment,
 } from "../controllers/course.controller";
-import { authenticate, optionalAuth } from "../middlewares/auth.middleware";
+import { authenticate } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.get("/", optionalAuth, getAllCourses);
+router.get("/", authenticate, getAllCourses);
 router.get("/:id", authenticate, getCourseById);
 router.post("/", authenticate, createCourse);
 router.post("/:id/enroll", authenticate, enrollInCourse);
